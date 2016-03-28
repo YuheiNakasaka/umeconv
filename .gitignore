@@ -1,0 +1,5 @@
+/actions/*/lambda.zip
+/actions/*/node_modules
+/node_modules
+config/production.json
+package.json

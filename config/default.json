@@ -1,0 +1,13 @@
+{
+  "Config": {
+    "crypto": {
+      "salt": "secret",
+      "digestAlgo": "sha1"
+    },
+    "path": {
+      "tmpImagePath": "/tmp/tmp.gif",
+      "tmpFileDir": "/tmp/files",
+      "completePath": "/tmp/complete.mp4"
+    }
+  }
+}
