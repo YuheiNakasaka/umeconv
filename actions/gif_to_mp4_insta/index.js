@@ -8,12 +8,12 @@ var child_process = require('child_process');
 var util = require('util');
 
 function createHashPromise(params) {
-  return new Promise((resolve, reject) => {
+  return new Promise(function(resolve, reject) {
     // prepare for hmac
     var hmac = crypto.createHmac(config.get('Config.crypto.digestAlgo'), config.get('Config.crypto.salt'));
     hmac.write(params.url);
     hmac.end();
-    hmac.on('readable', () => {
+    hmac.on('readable', function() {
       var data = hmac.read();
       if (data) {
         hash = data.toString('base64')
@@ -26,38 +26,38 @@ function createHashPromise(params) {
 }
 
 function downloadImagePromise(params) {
-  return new Promise((resolve, reject) => {
+  return new Promise(function(resolve, reject) {
     request
     .get(params.url)
-    .on('error', (err) => {
+    .on('error', function(err) {
       return new Promise.reject('404 not found');
     })
-    .on('response', (response) => {
+    .on('response', function(response) {
       console.log(response.statusCode);
     })
     .pipe(fs.createWriteStream(params.tmp_image_path, {"mode": 0777}))
-    .on('finish', () => {
+    .on('finish', function() {
       resolve(params.tmp_image_path);
     });
   });
 }
 
 function splitImagePromise(params) {
-  return new Promise((resolve, reject) => {
+  return new Promise(function(resolve, reject) {
     var fileDir = params.tmp_file_dir;
     if (!fs.existsSync) {
       fs.mkdirSync(fileDir);
     }
     var command = ['-coalesce', params.tmp_image_path, fileDir + "/%06d.jpg"];
-    im.convert(command, (err, stdout) => {
+    im.convert(command, function(err, stdout) {
       resolve(fileDir);
     });
   });
 }
 
 function getFpsPromise(params) {
-  return new Promise((resolve, reject) => {
-    im.identify(["-format", "%T,", params.tmp_image_path], (err, output) => {
+  return new Promise(function(resolve, reject) {
+    im.identify(["-format", "%T,", params.tmp_image_path], function(err, output) {
       delay = Number(output.split(',')[0]) || 10;
       params.fps = Math.round( (1/(delay/100)) );
       if (params.fps < 1) {
@@ -69,8 +69,8 @@ function getFpsPromise(params) {
 }
 
 function getFrameCountPromise(params) {
-  return new Promise((resolve, reject) => {
-    fs.readdir(params.tmp_file_dir, (err, items) => {
+  return new Promise(function(resolve, reject) {
+    fs.readdir(params.tmp_file_dir, function(err, items) {
       params.frameCount = items.length;
       resolve();
     });
@@ -78,8 +78,8 @@ function getFrameCountPromise(params) {
 }
 
 function getWidthPromise(params) {
-  return new Promise((resolve, reject) => {
-    im.identify(["-format", "%w,", params.tmp_image_path], (err, output) => {
+  return new Promise(function(resolve, reject) {
+    im.identify(["-format", "%w,", params.tmp_image_path], function(err, output) {
       tmpWidth = Number(output.split(',')[0]) || 500;
       params.width = (tmpWidth / 2) * 2;
       resolve();
@@ -88,8 +88,8 @@ function getWidthPromise(params) {
 }
 
 function getHeightPromise(params) {
-  return new Promise((resolve, reject) => {
-    im.identify(["-format", "%h,", params.tmp_image_path], (err, output) => {
+  return new Promise(function(resolve, reject) {
+    im.identify(["-format", "%h,", params.tmp_image_path], function(err, output) {
       tmpHeight = Number(output.split(',')[0]) || 500;
       params.height = (tmpHeight / 2) * 2;
       resolve();
@@ -98,14 +98,14 @@ function getHeightPromise(params) {
 }
 
 function createMp4Promise(params) {
-  return new Promise((resolve, reject) => {
+  return new Promise(function(resolve, reject) {
     if (params.playbacktime < 3.0) {
       console.log("Playbacktime < 3.0");
       // increase frame files to increase playbacktime
       var loopCount = Math.round( (3.0 / params.playbacktime) );
       for (var i = 0;i < loopCount;i++) {
         var files = fs.readdirSync(params.tmp_file_dir);
-        files.forEach((file) => {
+        files.forEach(function(file) {
           zero_padding_num = Number(file.match(/(\d+)\.jpg/)[1])
           plus = params.frameCount * (i+1);
           fileDir = params.tmp_file_dir + '/';
@@ -115,7 +115,7 @@ function createMp4Promise(params) {
       }
 
       child_process.execFile(
-        '../bin/ffmpeg',
+        params.ffmpeg,
         [
           '-r', params.fps,
           '-i', params.tmp_file_dir + '/%06d.jpg',
@@ -123,7 +123,7 @@ function createMp4Promise(params) {
           '-vcodec', 'libx264',
           '-y', params.complete_path
         ],
-        (err, stdout, stderr) => {
+        function(err, stdout, stderr) {
           resolve();
         }
       );
@@ -131,7 +131,7 @@ function createMp4Promise(params) {
     } else if(params.playbacktime > 15.0) {
       console.log("Playbacktime > 15.0");
       child_process.execFile(
-        'ffmpeg',
+        params.ffmpeg,
         [
           '-r', (params.frameCount / 14.0),
           '-i', params.tmp_file_dir + '/%06d.jpg',
@@ -139,14 +139,14 @@ function createMp4Promise(params) {
           '-vcodec', 'libx264',
           '-y', params.complete_path
         ],
-        (err, stdout, stderr) => {
+        function(err, stdout, stderr) {
           resolve();
         }
       );
     } else {
       console.log("Playbacktime is during 3.0 and 15.0");
       child_process.execFile(
-        'ffmpeg',
+        params.ffmpeg,
         [
           '-r', params.fps,
           '-i', params.tmp_file_dir + '/%06d.jpg',
@@ -154,7 +154,7 @@ function createMp4Promise(params) {
           '-vcodec', 'libx264',
           '-y', params.complete_path
         ],
-        (err, stdout, stderr) => {
+        function(err, stdout, stderr) {
           resolve();
         }
       );
@@ -163,8 +163,8 @@ function createMp4Promise(params) {
 }
 
 function readMp4Promise(params) {
-  return new Promise((resolve, reject) => {
-    fs.readFile(params.complete_path, (err, data) => {
+  return new Promise(function(resolve, reject) {
+    fs.readFile(params.complete_path, function(err, data) {
       resolve(data);
     });
   });
@@ -181,10 +181,12 @@ function deleteFilesSync(params) {
 exports.handler = function (event, context) {
   var params = {};
   if(!event.queryParameters) event.queryParameters = {};
-  if (process.env.NODE_ENV == 'production') {
+  if (!process.env.NODE_ENV || process.env.NODE_ENV != 'testing') {
+    params.ffmpeg = './bin/ffmpeg';
     params.url = event.queryParameters.url;
     params.hash_value = event.queryParameters.hval;
   } else {
+    params.ffmpeg = 'ffmpeg';
     params.url = 'http://img2.gifmagazine.net/gifmagazine/images/693846/medium.gif';
     params.hash_value = '1NUohyZozMFMFE2q3qsMsSMHaZE=';
   }
@@ -193,42 +195,42 @@ exports.handler = function (event, context) {
   params.tmp_file_dir = config.get('Config.path.tmpFileDir');
   params.complete_path = config.get('Config.path.completePath');
 
-  createHashPromise(params).then((hash) => {
+  createHashPromise(params).then(function(hash) {
     // check hash
     if (params.hash_value != hash) {
       return Promise.reject('400 invalid request');
     }
-  }).then(() => {
+  }).then(function() {
     // download image
     return downloadImagePromise(params);
-  }).then(() => {
+  }).then(function() {
     // split image
     return splitImagePromise(params);
-  }).then(() => {
+  }).then(function() {
     // get fps
     return getFpsPromise(params);
-  }).then(() => {
+  }).then(function() {
     // get frame counts
     return getFrameCountPromise(params);
-  }).then(() => {
+  }).then(function() {
     // get playbacktime
     params.playbacktime = (1/params.fps) * params.frameCount;
-  }).then(() => {
+  }).then(function() {
     // get width
     return getWidthPromise(params);
-  }).then(() => {
+  }).then(function() {
     // get height
     return getHeightPromise(params);
-  }).then(() => {
+  }).then(function() {
     // create mp4 file from images
     return createMp4Promise(params);
-  }).then(() => {
+  }).then(function() {
     // read mp4 data
     return readMp4Promise(params);
-  }).then((movieData) => {
+  }).then(function(movieData) {
     deleteFilesSync(params);
     context.succeed(movieData);
-  }).catch((err) => {
+  }).catch(function(err) {
      context.succeed(err);
   });
 };

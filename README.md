@@ -1,5 +1,7 @@
 # umeconv
 
+**Notice: API Gateway has not supported the response of binary data yet. So this server does not work until aws team supports the format.**
+
 This is a server written in nodejs to convert a gif animation to a movie data dynamically.
 
 It uses aws lambda + api gateway.
